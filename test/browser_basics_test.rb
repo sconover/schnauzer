@@ -28,7 +28,7 @@ regarding Schnauzer::Browser do
         	<a id="mylink" href="/mypage.html">linky</a>
         </body>
       </html>}, 
-      "http://bar")
+      :base_url => "http://bar")
     
     
     assert{ @browser.js("document.getElementById('mylink').href") == "http://bar/mypage.html" }
@@ -50,6 +50,17 @@ regarding Schnauzer::Browser do
     )
     
     assert{ @browser.js("document.body.innerHTML").include?(%{hello <div id="the_spot">world</div>}) }
+  end
+  
+  test "something happens on a delay (setTimeout)" do
+    @browser.load_html(%{
+      <html>
+        <body onload="setTimeout(function(){document.getElementById('x').innerHTML='yyy'}, 100)">
+          <a id='x'>zzz</a>
+        </body>
+      </html>
+    }, :wait_after_load => 0.3)
+    assert{ @browser.js("document.getElementById('x').innerHTML") == "yyy" }
   end
   
   test "load from url" do

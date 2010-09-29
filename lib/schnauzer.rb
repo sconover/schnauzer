@@ -21,32 +21,72 @@ module Schnauzer
         false
       )
       @view = OSX::WebView.alloc.initWithFrame(OSX::NSRect.new(0, 0, options[:width], options[:height]))
-    
-      @view.setFrameLoadDelegate(WebFrameLoadDelegate.alloc.init)
+      
+      @frame_load_delegate = WebFrameLoadDelegate.alloc.init
+      @view.setFrameLoadDelegate(@frame_load_delegate)
       # @view.mainFrame.frameView.setAllowsScrolling(false)
     
       # Replace the window's content @view with the web @view
       @window.setContentView(@view)
       @view.release
+      
+      # pp @view.mainFrame.DOMDocument.objc_methods.sort
     end
   
-    def load_html(html, base_url="http://localhost")
-      osx_base_url = OSX::NSURL.alloc.initWithString(base_url)
+    def load_html(html, options={})
+      defaults = {:base_url => "http://localhost"}
+      options = defaults.merge(options)
+      
+      osx_base_url = OSX::NSURL.alloc.initWithString(options[:base_url])
       @view.mainFrame.loadHTMLString_baseURL(html, osx_base_url)
-      _run_load
+      _run_load(options)
     end
   
-    def load_url(url)
+    def load_url(url, options={})
       @view.mainFrame.loadRequest(
         OSX::NSURLRequest.requestWithURL(
           OSX::NSURL.alloc.initWithString(url)
         )
       )
-      _run_load
+      _run_load(options)
     end
   
-    def _run_load
-      OSX.CFRunLoopRun #this blocks until the frame loads (see LoadDelegate)
+    def _run_load(options)
+      defaults = {:wait_after_load => 0}
+      options = defaults.merge(options)
+      
+      # OSX.CFRunLoopRun #this blocks until the frame loads (see LoadDelegate)
+      # OSX::NSRunLoop.currentRunLoop.run
+      # p "XXXXXXXXXXX"
+            # p OSX::NSRunLoop.mainRunLoop.runMode_beforeDate(
+            #   OSX::NSDefaultRunLoopMode,
+            #   OSX::NSDate.dateWithTimeIntervalSinceNow(30)
+            # )
+      
+      interval = 0.005
+      @frame_load_delegate.done = false
+      countdown_after_load = options[:wait_after_load]
+      
+      while (!@frame_load_delegate.done || countdown_after_load>0)
+        OSX.CFRunLoopRunInMode(OSX::KCFRunLoopDefaultMode, interval, false)
+        
+        countdown_after_load -= interval if @frame_load_delegate.done
+      end
+      # p OSX.CFRunLoopGetNextTimerFireDate(OSX.CFRunLoopGetMain, OSX::KCFRunLoopDefaultMode)
+      # while @view.isLoading
+               # p OSX.CFRunLoopRunInMode(OSX::KCFRunLoopDefaultMode, 2, false)
+      #         p js("document.getElementById('x').innerHTML")
+      #       end
+    #   start = Time.now
+    #   while (Time.now < start + 4)
+    # event = @window.nextEventMatchingMask_untilDate_inMode_dequeue(
+    #   OSX::NSAnyEventMask,
+    #   OSX::NSDate.dateWithTimeIntervalSinceNow(0.1),
+    #   OSX::NSDefaultRunLoopMode,
+    #   true)
+    #   
+    #   p event
+    # end
 
       # @view.setNeedsDisplay(true)
       # @view.displayIfNeeded
@@ -63,17 +103,22 @@ module Schnauzer
   
   
   class WebFrameLoadDelegate < OSX::NSObject
-
+    
+    attr_accessor :done
+    
     def webView_didFinishLoadForFrame(sender, frame)
-      OSX.CFRunLoopStop(OSX.CFRunLoopGetCurrent)
+      @done = true
+      # OSX.CFRunLoopStop(OSX.CFRunLoopGetCurrent)
     end
 
     def webView_didFailLoadWithError_forFrame(webview, load_error, frame)
-      OSX.CFRunLoopStop(OSX.CFRunLoopGetCurrent)
+      @done = true
+      # OSX.CFRunLoopStop(OSX.CFRunLoopGetCurrent)
     end
 
     def webView_didFailProvisionalLoadWithError_forFrame(webview, load_error, frame)
-      OSX.CFRunLoopStop(OSX.CFRunLoopGetCurrent)
+      @done = true
+      # OSX.CFRunLoopStop(OSX.CFRunLoopGetCurrent)
     end
   
     def webView_didStartProvisionalLoadForFrame(v, frame)
